@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>又菜又爱玩 · 羽毛球爱好者群</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="public/imgs/svgs/shuttles.svg" />
+
+  <!-- Inter + Noto Sans SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- React 18 + Babel + Framer Motion 11 + Tailwind CDN -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/framer-motion@11.11.17/dist/framer-motion.js"></script>
+  <script>window.Motion = window.FramerMotion;</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            court:    '#16a34a',
+            shuttle:  '#fbbf24',
+            energy:   '#f97316',
+            sky2:     '#38bdf8',
+            cream:    '#fefce8',
+          },
+          fontFamily: {
+            sans: ['Inter', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    html, body {
+      font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      background: #fffaf0;
+      color: #0f172a;
+    }
+    body { overflow-x: hidden; }
+
+    /* Court lines decoration */
+    .court-bg {
+      background-image:
+        linear-gradient(to right, rgba(22,163,74,0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(22,163,74,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Subtle float animation for decorative elements */
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+    .floaty { animation: floaty 5s ease-in-out infinite; }
+    .floaty-2 { animation: floaty 6s ease-in-out infinite 0.5s; }
+    .floaty-3 { animation: floaty 4s ease-in-out infinite 1s; }
+
+    /* Shuttlecock arc keyframes (used with CSS-only fallback if motion fails) */
+    @keyframes shuttle-arc {
+      0%   { transform: translate(-10vw, 30vh) rotate(-30deg); }
+      25%  { transform: translate(20vw, 5vh)  rotate(80deg); }
+      50%  { transform: translate(50vw, 0)    rotate(220deg); }
+      75%  { transform: translate(80vw, 10vh) rotate(340deg); }
+      100% { transform: translate(110vw, 30vh) rotate(420deg); }
+    }
+
+    /* Counter rise */
+    @keyframes counter-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Photo card hover */
+    .photo-card { transition: transform 500ms cubic-bezier(.22,1,.36,1), box-shadow 500ms; }
+    .photo-card:hover { transform: scale(1.03); box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+    .photo-card img { transition: transform 700ms cubic-bezier(.22,1,.36,1); }
+    .photo-card:hover img { transform: scale(1.08); }
+
+    .bounce-in { animation: bounce-in 0.8s cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes bounce-in {
+      from { opacity: 0; transform: scale(0.5); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useRef, useEffect } = React;
+    const FM = window.FramerMotion || window.Motion;
+
+    /* === motion with Proxy fallback (so page renders even if FM CDN fails) === */
+    function makePlain(tag) {
+      const T = String(tag);
+      const C = ({ children, className, style, initial, animate, whileInView, transition, variants, exit, viewport, ...rest }) =>
+        React.createElement(T, { className, style, ...rest }, children);
+      C.displayName = `motion(${T})`;
+      return C;
+    }
+    const motion = (FM && FM.motion)
+      ? FM.motion
+      : new Proxy({}, { get: (_, tag) => makePlain(tag) });
+
+    const EASE = [0.22, 1, 0.36, 1];
+
+    /* ============================================================
+       Inline lucide-style icons
+       ============================================================ */
+    const Icon = {
+      ArrowRight: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      ),
+      MapPin: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      ),
+      Clock: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ),
+      Users: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      ),
+      Trophy: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      ),
+      Sparkles: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}>
+          <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+          <path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/>
+        </svg>
+      ),
+      Heart: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      ),
+      Shield: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      ),
+      Star: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      ),
+      ChevronDown: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><polyline points="6 9 12 15 18 9"/></svg>
+      ),
+      Check: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={c}><polyline points="20 6 9 17 4 12"/></svg>
+      ),
+      MessageCircle: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      ),
+      Camera: ({c='w-4 h-4'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      ),
+    };
+
+    /* ============================================================
+       Shuttlecock SVG (with simple racket)
+       ============================================================ */
+    function Shuttlecock({ className = 'w-16 h-16' }) {
+      return (
+        <svg viewBox="0 0 64 64" className={className}>
+          <defs>
+            <linearGradient id="shuttle-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#fef3c7" />
+              <stop offset="100%" stopColor="#fbbf24" />
+            </linearGradient>
+          </defs>
+          {/* Cork head */}
+          <circle cx="32" cy="40" r="9" fill="url(#shuttle-grad)" stroke="#d97706" strokeWidth="1" />
+          {/* Feathers */}
+          <g stroke="#fff" strokeWidth="1.5" fill="none" opacity="0.95">
+            <path d="M24 36 Q14 24 16 8" />
+            <path d="M32 32 L32 6"  />
+            <path d="M40 36 Q50 24 48 8" />
+            <path d="M22 38 Q8 32 6 22" />
+            <path d="M42 38 Q56 32 58 22" />
+          </g>
+        </svg>
+      );
+    }
+
+    function Racket({ className = 'w-20 h-20', flip = false }) {
+      return (
+        <svg viewBox="0 0 80 120" className={className} style={{ transform: flip ? 'scaleX(-1)' : 'none' }}>
+          <defs>
+            <linearGradient id="racket-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0ea5e9" />
+              <stop offset="100%" stopColor="#16a34a" />
+            </linearGradient>
+          </defs>
+          {/* Shaft */}
+          <rect x="37" y="40" width="6" height="78" rx="3" fill="#1e293b" />
+          {/* Head */}
+          <ellipse cx="40" cy="28" rx="32" ry="36" fill="none" stroke="url(#racket-grad)" strokeWidth="4" />
+          {/* Strings */}
+          <g stroke="#e2e8f0" strokeWidth="0.6" opacity="0.7">
+            <line x1="14" y1="14" x2="66" y2="14" />
+            <line x1="10" y1="22" x2="70" y2="22" />
+            <line x1="10" y1="34" x2="70" y2="34" />
+            <line x1="14" y1="42" x2="66" y2="42" />
+            <line x1="22" y1="6"  x2="22" y2="50" />
+            <line x1="32" y1="2"  x2="32" y2="54" />
+            <line x1="40" y1="-2" x2="40" y2="58" />
+            <line x1="48" y1="2"  x2="48" y2="54" />
+            <line x1="58" y1="6"  x2="58" y2="50" />
+          </g>
+        </svg>
+      );
+    }
+
+    /* ============================================================
+       Player — full body silhouette swinging a racket
+       Pivot points (viewBox coords):
+         Back-arm shoulder:  (95, 105)
+         Front-arm shoulder: (145, 105)
+       Swing loop: 1.8s, 4 stages
+         0%   backswing  (racket up-back)
+         30%  transition (racket passes neutral)
+         50%  contact    (racket forward-down, shuttlecock hit)
+         70%  follow-thru / settle
+         100% back to backswing
+       ============================================================ */
+    function Player({ className = 'w-72' }) {
+      return (
+        <svg viewBox="0 0 260 380" className={className}>
+          <defs>
+            <linearGradient id="jersey-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22c55e" />
+              <stop offset="100%" stopColor="#15803d" />
+            </linearGradient>
+            <linearGradient id="racket-grad2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0ea5e9" />
+              <stop offset="100%" stopColor="#0c4a6e" />
+            </linearGradient>
+          </defs>
+
+          {/* Court line + shadow */}
+          <line x1="0" y1="365" x2="260" y2="365" stroke="#16a34a" strokeWidth="2" opacity="0.35" />
+          <ellipse cx="130" cy="365" rx="70" ry="6" fill="#000" opacity="0.12" />
+
+          {/* Legs (athletic stance, slight crouch) */}
+          <path d="M115 235 L102 360 L122 360 L128 240 Z" fill="#1e293b" />
+          <path d="M145 235 L158 360 L138 360 L132 240 Z" fill="#1e293b" />
+
+          {/* Shoes */}
+          <ellipse cx="112" cy="362" rx="16" ry="5" fill="#0f172a" />
+          <ellipse cx="148" cy="362" rx="16" ry="5" fill="#0f172a" />
+          <ellipse cx="112" cy="360" rx="16" ry="3" fill="#334155" />
+          <ellipse cx="148" cy="360" rx="16" ry="3" fill="#334155" />
+
+          {/* Torso (jersey) */}
+          <path d="M88 100 Q130 92 172 100 L168 240 L92 240 Z" fill="url(#jersey-grad)" />
+          <line x1="92" y1="180" x2="168" y2="180" stroke="white" strokeWidth="2" opacity="0.35" />
+          <text x="130" y="215" fontSize="28" fontWeight="900" fill="white" textAnchor="middle" opacity="0.9">88</text>
+
+          {/* Neck */}
+          <rect x="122" y="82" width="16" height="22" fill="#fbbf24" />
+
+          {/* Head */}
+          <circle cx="130" cy="58" r="29" fill="#fbbf24" />
+          {/* Hair */}
+          <path d="M101 58 Q130 26 159 58 Q163 40 130 32 Q97 40 101 58 Z" fill="#1e293b" />
+          {/* Headband */}
+          <rect x="101" y="52" width="58" height="7" fill="#ef4444" />
+          <text x="130" y="58" fontSize="6" fontWeight="700" fill="white" textAnchor="middle">CHINA</text>
+          {/* Eye */}
+          <circle cx="148" cy="62" r="2.5" fill="#0f172a" />
+          <circle cx="148" cy="61" r="0.8" fill="white" />
+          {/* Eyebrow */}
+          <path d="M142 53 L153 53" stroke="#1e293b" strokeWidth="2" strokeLinecap="round" />
+          {/* Mouth */}
+          <path d="M144 75 Q150 78 154 75" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          {/* Sweat drop */}
+          <motion.path
+            d="M165 75 Q167 80 165 85 Q163 80 165 75 Z"
+            fill="#38bdf8"
+            animate={{ y: [0, 20, 40], opacity: [1, 0.7, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeIn' }}
+          />
+
+          {/* === BACK ARM (counter-balance, swings opposite) === */}
+          <motion.g
+            style={{ transformOrigin: '100px 110px', transformBox: 'view-box' }}
+            animate={{ rotate: [20, 0, -35, -10, 20] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.3, 0.5, 0.7, 1] }}
+          >
+            <path d="M100 110 L65 140" stroke="#fbbf24" strokeWidth="13" strokeLinecap="round" />
+            <path d="M65 140 L48 178" stroke="#fbbf24" strokeWidth="11" strokeLinecap="round" />
+            <circle cx="48" cy="180" r="8" fill="#fbbf24" />
+          </motion.g>
+
+          {/* === MOTION LINES (visible only during fast swing segment) === */}
+          <motion.g
+            stroke="#fbbf24"
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+            animate={{ opacity: [0, 0, 0.8, 0.4, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, times: [0, 0.3, 0.5, 0.65, 0.8] }}
+          >
+            <path d="M205 115 Q225 100 240 78"  />
+            <path d="M198 140 Q222 130 238 115" />
+            <path d="M192 165 Q215 160 228 155" />
+          </motion.g>
+
+          {/* === FRONT ARM + RACKET (the swinging arm) === */}
+          <motion.g
+            style={{ transformOrigin: '155px 110px', transformBox: 'view-box' }}
+            animate={{ rotate: [-60, 5, 80, 50, -60] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.3, 0.5, 0.7, 1] }}
+          >
+            {/* Upper arm */}
+            <path d="M155 110 L182 142" stroke="#fbbf24" strokeWidth="13" strokeLinecap="round" />
+            {/* Forearm */}
+            <path d="M182 142 L205 175" stroke="#fbbf24" strokeWidth="11" strokeLinecap="round" />
+            {/* Wrist + handle */}
+            <rect x="202" y="173" width="8" height="42" rx="3" fill="#1e293b" />
+            <rect x="202" y="173" width="8" height="42" rx="3" fill="none" stroke="#fbbf24" strokeWidth="0.8" />
+            {/* Hand grip */}
+            <circle cx="206" cy="178" r="7" fill="#fbbf24" />
+            {/* Racket head (group offset so rotation pivots at handle base) */}
+            <g transform="translate(206 140)">
+              <ellipse cx="0" cy="0" rx="32" ry="36" fill="rgba(14,165,233,0.08)" />
+              <ellipse cx="0" cy="0" rx="32" ry="36" fill="none" stroke="url(#racket-grad2)" strokeWidth="5" />
+              <g stroke="#fff" strokeWidth="1" opacity="0.65">
+                <line x1="-26" y1="-22" x2="26" y2="-22" />
+                <line x1="-29" y1="-11" x2="29" y2="-11" />
+                <line x1="-30" y1="0"   x2="30" y2="0" />
+                <line x1="-29" y1="11"  x2="29" y2="11" />
+                <line x1="-26" y1="22"  x2="26" y2="22" />
+                <line x1="-15" y1="-32" x2="-15" y2="32" />
+                <line x1="0"   y1="-36" x2="0"   y2="36" />
+                <line x1="15"  y1="-32" x2="15"  y2="32" />
+              </g>
+              <circle cx="0" cy="0" r="4" fill="#fbbf24" />
+              <text x="0" y="3" fontSize="5" fontWeight="900" fill="#0c4a6e" textAnchor="middle">Y</text>
+            </g>
+          </motion.g>
+
+          {/* === SHUTTLECOCK (appears at contact, flies off) === */}
+          <motion.g
+            animate={{
+              x: [0, 0, 0, 90, 240],
+              y: [0, 0, 0, -45, -115],
+              rotate: [0, 0, 0, 220, 600],
+              opacity: [0, 0, 1, 1, 0],
+            }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', times: [0, 0.45, 0.5, 0.75, 1] }}
+          >
+            {/* Cork head */}
+            <circle cx="135" cy="148" r="8" fill="#fef3c7" stroke="#d97706" strokeWidth="1.2" />
+            {/* Feathers */}
+            <g stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none">
+              <line x1="129" y1="142" x2="121" y2="125" />
+              <line x1="135" y1="140" x2="135" y2="122" />
+              <line x1="141" y1="142" x2="149" y2="125" />
+              <line x1="127" y1="146" x2="116" y2="138" />
+              <line x1="143" y1="146" x2="154" y2="138" />
+            </g>
+          </motion.g>
+        </svg>
+      );
+    }
+
+    /* ============================================================
+       Court net (decorative SVG)
+       ============================================================ */
+    function CourtNet({ className }) {
+      return (
+        <svg viewBox="0 0 400 80" className={className} preserveAspectRatio="none">
+          {/* Net top tape */}
+          <rect x="0" y="6" width="400" height="6" fill="#fff" />
+          {/* Net mesh (simple diagonal lines) */}
+          <g stroke="#cbd5e1" strokeWidth="0.8" opacity="0.55">
+            {Array.from({ length: 50 }).map((_, i) => (
+              <line key={i} x1={i * 8} y1="12" x2={i * 8 + 40} y2="74" />
+            ))}
+          </g>
+          {/* Posts */}
+          <rect x="0"   y="0" width="4" height="80" fill="#475569" />
+          <rect x="396" y="0" width="4" height="80" fill="#475569" />
+        </svg>
+      );
+    }
+
+    /* ============================================================
+       Helpers
+       ============================================================ */
+    const fadeUp = (delay = 0, opts = {}) => ({
+      initial: { opacity: 0, y: opts.y ?? 24 },
+      whileInView: { opacity: 1, y: 0 },
+      viewport: { once: true, amount: opts.amount ?? 0.2 },
+      transition: { duration: opts.duration ?? 0.7, ease: EASE, delay },
+    });
+
+    function Counter({ from = 0, to, duration = 1.6, suffix = '', prefix = '' }) {
+      const [val, setVal] = useState(from);
+      const ref = useRef(null);
+      const inView = (FM && FM.useInView)
+        ? FM.useInView(ref, { once: true, amount: 0.5 })
+        : [ref, true];
+      const [el] = inView;
+      useEffect(() => {
+        if (!el || !el.current) return;
+        let raf, start;
+        const step = (ts) => {
+          if (!start) start = ts;
+          const t = Math.min((ts - start) / (duration * 1000), 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          setVal(Math.round(from + (to - from) * eased));
+          if (t < 1) raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
+      }, [el, to, from, duration]);
+      return <span ref={el}>{prefix}{val}{suffix}</span>;
+    }
+
+    /* ============================================================
+       Navbar
+       ============================================================ */
+    function Navbar() {
+      const [scrolled, setScrolled] = useState(false);
+      useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 30);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
+      }, []);
+      const links = [
+        ['#rules', '群规'],
+        ['#schedule', '活动'],
+        ['#vibe', '群氛围'],
+        ['#levels', '等级'],
+        ['#join', '加入'],
+      ];
+      return (
+        <motion.nav
+          initial={{ y: -40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-md border-b border-slate-200/60 shadow-sm' : 'bg-transparent'}`}
+        >
+          <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="#top" className="flex items-center gap-2">
+              <span className="text-2xl">🏸</span>
+              <span className="font-bold text-slate-900 text-lg tracking-tight">又菜又爱玩</span>
+            </a>
+            <div className="hidden md:flex items-center gap-7">
+              {links.map(([href, label]) => (
+                <a key={href} href={href} className="text-sm text-slate-600 hover:text-court transition-colors">{label}</a>
+              ))}
+            </div>
+            <a href="#join" className="inline-flex items-center gap-1.5 rounded-full bg-court text-white text-sm font-semibold px-4 py-2 hover:bg-court/90 transition-all hover:scale-[1.03]">
+              立即加入 <Icon.ArrowRight />
+            </a>
+          </div>
+        </motion.nav>
+      );
+    }
+
+    /* ============================================================
+       Hero — shuttlecock arc + rackets swinging
+       ============================================================ */
+    function Hero() {
+      return (
+        <section id="top" className="relative min-h-screen overflow-hidden pt-16 court-bg">
+          {/* Background sun glow */}
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-shuttle/30 blur-3xl pointer-events-none" />
+          <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] rounded-full bg-court/15 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 right-0 w-[500px] h-[500px] rounded-full bg-energy/15 blur-3xl pointer-events-none" />
+
+          {/* Court net — across the hero behind the title */}
+          <div className="absolute bottom-[8%] left-0 right-0 mx-auto w-[80%] max-w-3xl opacity-30 pointer-events-none">
+            <CourtNet className="w-full h-16" />
+          </div>
+
+          {/* Player figure swinging a racket — left side, large */}
+          <motion.div
+            initial={{ opacity: 0, x: -60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+            className="absolute left-[2%] md:left-[4%] lg:left-[6%] bottom-[6%] z-10 pointer-events-none hidden md:block"
+          >
+            <Player className="w-52 lg:w-64 xl:w-72" />
+          </motion.div>
+
+          {/* Opponent (smaller, mirrored) — right side */}
+          <motion.div
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
+            className="absolute right-[2%] md:right-[4%] lg:right-[6%] bottom-[6%] z-10 pointer-events-none hidden lg:block"
+          >
+            <div style={{ transform: 'scaleX(-1)' }}>
+              <Player className="w-48" />
+            </div>
+          </motion.div>
+
+          <div className="relative z-10 max-w-5xl mx-auto px-6 pt-32 pb-24 text-center">
+            <motion.div {...fadeUp(0)} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-shuttle/20 border border-shuttle/40 text-amber-800 text-xs font-semibold mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-shuttle animate-pulse" />
+              新手友好 · 认真出汗 · 欢乐无限
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 1, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
+              className="text-6xl md:text-8xl font-black tracking-tight leading-[0.9]"
+            >
+              <span className="block text-slate-900">又菜</span>
+              <span className="block text-court">又爱玩</span>
+            </motion.h1>
+
+            <motion.p
+              {...fadeUp(0.4)}
+              className="mt-8 text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed"
+            >
+              专组织出汗绵绵的羽毛球🏸爱好者新手群。<br className="hidden md:block" />
+              不论水平，只论热爱。球场四上四下，多换搭档多鼓励。
+            </motion.p>
+
+            <motion.div {...fadeUp(0.6)} className="mt-10 flex items-center justify-center gap-4 flex-wrap">
+              <a href="#join" className="group inline-flex items-center gap-2 rounded-full bg-court text-white font-semibold px-7 py-3.5 hover:bg-court/90 transition-all hover:scale-[1.04] shadow-lg shadow-court/30">
+                立即加入 <Icon.ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </a>
+              <a href="#rules" className="inline-flex items-center gap-2 rounded-full bg-white text-slate-900 font-semibold px-7 py-3.5 border border-slate-200 hover:bg-slate-50 transition-all">
+                查看群规
+              </a>
+            </motion.div>
+
+            <motion.div {...fadeUp(0.9)} className="mt-16 flex items-center justify-center gap-6 text-sm text-slate-500">
+              <div className="flex items-center gap-1.5"><Icon.MapPin className="w-4 h-4" /> 廉南球馆</div>
+              <div className="w-1 h-1 rounded-full bg-slate-300" />
+              <div className="flex items-center gap-1.5"><Icon.Clock className="w-4 h-4" /> 每周 6 天场次</div>
+              <div className="w-1 h-1 rounded-full bg-slate-300" />
+              <div className="flex items-center gap-1.5"><Icon.Users className="w-4 h-4" /> 三档水平同场</div>
+            </motion.div>
+          </div>
+
+          {/* Scroll indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.4, duration: 0.6 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 text-slate-400 flex flex-col items-center gap-1"
+          >
+            <span className="text-xs">向下滑动</span>
+            <motion.div
+              animate={{ y: [0, 6, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Icon.ChevronDown className="w-4 h-4" />
+            </motion.div>
+          </motion.div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Stats strip
+       ============================================================ */
+    function StatsStrip() {
+      const stats = [
+        { num: 280, suffix: '+', label: '群内球友' },
+        { display: '5-7',        label: '每周场次' },
+        { num: 3,   suffix: '档', label: '水平段位' },
+        { num: 1,   suffix: '年', label: '建群时长' },
+      ];
+      return (
+        <section className="relative bg-court text-white py-12 overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <svg className="w-full h-full" viewBox="0 0 800 100" preserveAspectRatio="none">
+              <path d="M0,50 Q200,0 400,50 T800,50" fill="none" stroke="#fff" strokeWidth="2" />
+            </svg>
+          </div>
+          <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-6 relative z-10">
+            {stats.map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.5 }}
+                transition={{ duration: 0.6, delay: i * 0.1 }}
+                className="text-center"
+              >
+                <div className="text-4xl md:text-5xl font-black tracking-tight">
+                  {s.display != null ? s.display : <Counter to={s.num} suffix={s.suffix} />}
+                </div>
+                <div className="mt-1 text-sm text-white/80">{s.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Group Rules (7 cards)
+       ============================================================ */
+    function GroupRules() {
+      const rules = [
+        { icon: '🤝', title: '球场礼仪',  body: '球场四上四下，禁止霸场与多局固定对手；球费场地费请当日结清。' },
+        { icon: '🚫', title: '文明交流',  body: '禁广告、刷屏、人身攻击、嘲讽辱骂、涉黄涉赌涉毒等违规内容。' },
+        { icon: '📩', title: '邀请责任',  body: '可自由拉人；若被邀请人出现跑单未付，由邀请人负责其球费场地费。' },
+        { icon: '🎒', title: '自备装备',  body: '球拍、运动鞋、水，安全第一，量力而行。' },
+        { icon: '🎲', title: '娱乐为主',  body: '默认双打，多更换搭档与对手，多鼓励多谦让。' },
+        { icon: '✈️', title: '清理潜水',  body: '2 个月不打球的群友会被管理员送机票，请理解。' },
+        { icon: '🛡️', title: '免责声明',  body: '参与者自愿参加，自行承担运动风险，与组织者、同行者无关。' },
+      ];
+      return (
+        <section id="rules" className="py-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp(0)} className="text-center mb-14">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-court/10 text-court text-xs font-semibold mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-court" /> 群规须知
+              </span>
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+                先看规矩，<span className="text-court">再开打</span>
+              </h2>
+              <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+                本群为羽毛球🏸爱好新手群，专组织出汗绵绵群。围绕尊重、谦让与运动本身的快乐。
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {rules.map((r, i) => (
+                <motion.div
+                  key={r.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.6, ease: EASE, delay: i * 0.07 }}
+                  whileHover={{ y: -6 }}
+                  className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-court/40 hover:shadow-xl hover:shadow-court/5 transition-all"
+                >
+                  <div className="text-3xl mb-3">{r.icon}</div>
+                  <div className="text-xs text-court font-semibold tracking-widest uppercase mb-1">No.0{i + 1}</div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">{r.title}</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">{r.body}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div {...fadeUp(0.3)} className="mt-10 text-center">
+              <div className="inline-flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 max-w-3xl">
+                <Icon.Heart className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-sm text-amber-900 text-left leading-relaxed">
+                  <span className="font-semibold">致全体群成员的温馨提醒：</span>本群旨在为热爱羽毛球的伙伴提供交流球技、约球组队的友好平台。核心是围绕运动的互相尊重与理解。
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Schedule
+       ============================================================ */
+    function Schedule() {
+      const schedule = [
+        {
+          day: '周一 - 周六',
+          time: '19:40 - 21:55',
+          tag: '晚场',
+          tagColor: 'bg-energy/15 text-energy',
+          desc: '下班后放空，酣畅淋漓的 2 小时。',
+        },
+        {
+          day: '周六 / 周日',
+          time: '13:30 - 15:30',
+          tag: '周末下午场',
+          tagColor: 'bg-court/15 text-court',
+          desc: '睡饱再战，下午的太阳配杀球刚刚好。',
+        },
+      ];
+      return (
+        <section id="schedule" className="py-24 px-6 bg-gradient-to-b from-white to-cream">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp(0)} className="text-center mb-14">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-energy/10 text-energy text-xs font-semibold mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-energy" /> 活动时间
+              </span>
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+                6 天场次，<span className="text-energy">等你来战</span>
+              </h2>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {schedule.map((s, i) => (
+                <motion.div
+                  key={s.day}
+                  initial={{ opacity: 0, x: i === 0 ? -40 : 40 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={{ duration: 0.7, ease: EASE }}
+                  className="bg-white rounded-3xl p-8 border border-slate-200 hover:shadow-2xl hover:shadow-court/10 transition-all"
+                >
+                  <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${s.tagColor}`}>{s.tag}</span>
+                  <h3 className="mt-4 text-2xl font-bold text-slate-900">{s.day}</h3>
+                  <div className="mt-2 flex items-center gap-2 text-3xl font-black text-court tracking-tight">
+                    <Icon.Clock className="w-7 h-7" />
+                    {s.time}
+                  </div>
+                  <p className="mt-4 text-slate-600 leading-relaxed">{s.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div
+              {...fadeUp(0.3)}
+              className="mt-10 bg-white rounded-3xl p-6 md:p-8 border border-slate-200 flex items-center gap-5 hover:shadow-xl transition-shadow"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-court/10 flex items-center justify-center shrink-0">
+                <Icon.MapPin className="w-7 h-7 text-court" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs uppercase tracking-widest text-court font-semibold">Venue</div>
+                <div className="text-xl font-bold text-slate-900 mt-1">廉南球馆</div>
+                <div className="text-sm text-slate-500 mt-1">具体地址在群内同步，新人导航可达</div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Atmosphere — single carousel (mixes court + team building)
+       ============================================================ */
+    function Atmosphere() {
+      const photos = [
+        { src: 'public/imgs/badminton/rackets.jpg',   alt: '整齐出战的球拍' },
+        { src: 'public/imgs/badminton/Group_Photo.jpg', alt: '球场群友合影' },
+        { src: 'public/imgs/events/eating1.jpg',      alt: '一桌好菜' },
+        { src: 'public/imgs/events/board game.jpg',   alt: '桌游之夜' },
+        { src: 'public/imgs/events/eating3.jpg',      alt: '聚餐时光' },
+        { src: 'public/imgs/events/eating4.jpg',      alt: '聚餐时光' },
+        { src: 'public/imgs/events/Group_Photo.jpg',  alt: '团建大合影' },
+        { src: 'public/imgs/events/eating2jpg.jpg',   alt: '球后撸串' },
+      ];
+
+      const [index, setIndex] = useState(0);
+      const [paused, setPaused] = useState(false);
+      const next = () => setIndex((i) => (i + 1) % photos.length);
+      const prev = () => setIndex((i) => (i - 1 + photos.length) % photos.length);
+
+      useEffect(() => {
+        if (paused) return;
+        const id = setInterval(next, 4500);
+        return () => clearInterval(id);
+      }, [paused]);
+
+      const AnimatePresence = FM && FM.AnimatePresence;
+      const ChevronLeft = ({c='w-5 h-5'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+             strokeLinecap="round" strokeLinejoin="round" className={c}>
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      );
+      const ChevronRight = ({c='w-5 h-5'}) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+             strokeLinecap="round" strokeLinejoin="round" className={c}>
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      );
+
+      const slide = (
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ duration: 0.5, ease: EASE }}
+          className="absolute inset-0"
+        >
+          <img
+            src={photos[index].src}
+            alt={photos[index].alt}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-x-0 bottom-0 px-6 py-4 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
+            <span className="text-white text-sm font-medium drop-shadow">
+              {photos[index].alt}
+            </span>
+          </div>
+        </motion.div>
+      );
+
+      return (
+        <section id="vibe" className="py-24 px-6 bg-cream">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp(0)} className="text-center mb-14">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-energy/10 text-energy text-xs font-semibold mb-4">
+                <Icon.Heart className="w-3.5 h-3.5" /> 群氛围
+              </span>
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+                打球出汗，<span className="text-energy">撸串深交</span>
+              </h2>
+              <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+                球场上是对手，球场下是好朋友。除了每周固定的羽毛球🏸约局，还有生日局、撸串之夜、桌游、户外拓展——这些共同的瞬间，都被我们一一记录。
+              </p>
+            </motion.div>
+
+            <motion.div
+              {...fadeUp(0.2)}
+              className="relative max-w-5xl mx-auto rounded-3xl overflow-hidden bg-slate-200 shadow-xl shadow-court/10 group"
+              onMouseEnter={() => setPaused(true)}
+              onMouseLeave={() => setPaused(false)}
+            >
+              <div className="relative aspect-[16/9]">
+                {AnimatePresence ? (
+                  <AnimatePresence mode="wait">{slide}</AnimatePresence>
+                ) : (
+                  slide
+                )}
+              </div>
+
+              {/* 左右切换按钮 */}
+              <button
+                onClick={prev}
+                aria-label="上一张"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 backdrop-blur-sm transition-colors"
+              >
+                <ChevronLeft />
+              </button>
+              <button
+                onClick={next}
+                aria-label="下一张"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 backdrop-blur-sm transition-colors"
+              >
+                <ChevronRight />
+              </button>
+
+              {/* 圆点指示器 */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+                {photos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setIndex(i)}
+                    aria-label={`第 ${i + 1} 张`}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/60 hover:bg-white/90'
+                    }`}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Member Levels
+       ============================================================ */
+    function MemberLevels() {
+      const levels = [
+        {
+          tag: '新手',
+          color: 'from-green-400 to-court',
+          emoji: '🌱',
+          desc: '刚拿起球拍？没关系。本群一半以上都是新手。',
+          skills: ['握拍与基础站位', '高远球入门'],
+          count: 20,
+        },
+        {
+          tag: '中级',
+          color: 'from-shuttle to-energy',
+          emoji: '⚡',
+          desc: '会打、有对抗经验。想要精进某一两项技术。',
+          skills: ['杀球与吊球', '网前小球与推扑', '双打走位与配合'],
+          count: 50,
+        },
+        {
+          tag: '高级',
+          color: 'from-sky2 to-purple-500',
+          emoji: '🔥',
+          desc: '有扎实基本功，愿意带新手、组比赛、做示范。',
+          skills: ['全场步伐', '攻防战术', '新手陪练与指导'],
+          count: 30,
+        },
+      ];
+      const total = levels.reduce((a, b) => a + b.count, 0);
+      return (
+        <section id="levels" className="py-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp(0)} className="text-center mb-14">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky2/10 text-sky2 text-xs font-semibold mb-4">
+                <Icon.Users className="w-3.5 h-3.5" /> 成员等级
+              </span>
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+                不论水平，<span className="text-sky2">只论热爱</span>
+              </h2>
+              <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+                新手 / 中级 / 高级 三档同场，按需搭档。
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {levels.map((l, i) => (
+                <motion.div
+                  key={l.tag}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.7, ease: EASE, delay: i * 0.1 }}
+                  className="relative bg-white rounded-3xl p-7 border border-slate-200 hover:shadow-2xl transition-all overflow-hidden group"
+                >
+                  <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full bg-gradient-to-br ${l.color} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`} />
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-4xl">{l.emoji}</span>
+                      <span className="text-xs text-slate-500">占比 {Math.round(l.count / total * 100)}%</span>
+                    </div>
+                    <h3 className={`text-2xl font-black bg-gradient-to-r ${l.color} bg-clip-text text-transparent tracking-tight`}>{l.tag}</h3>
+                    <p className="mt-2 text-sm text-slate-600 leading-relaxed">{l.desc}</p>
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">典型技能</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {l.skills.map((s) => (
+                          <span key={s} className="text-xs bg-slate-100 text-slate-700 rounded-full px-2.5 py-1">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Distribution bar */}
+                    <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${(l.count / total) * 100}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.2, ease: EASE, delay: 0.3 + i * 0.1 }}
+                        className={`h-full bg-gradient-to-r ${l.color}`}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Join Us — QR codes
+       ============================================================ */
+    function JoinUs() {
+      const qrCards = [
+        { src: 'public/imgs/qr_code/pa.jpg',   label: '群管理员', sub: '猫猫管理', delay: 0.1 },
+        { src: 'public/imgs/qr_code/pang.jpg', label: '群管理员', sub: '勤拿球',   delay: 0.2 },
+        { src: 'public/imgs/qr_code/w.jpg',    label: '垃圾技术', sub: '啥也不会', delay: 0.3 }
+      ];
+      return (
+        <section id="join" className="py-24 px-6 bg-gradient-to-br from-court to-court/80 text-white relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
+            <svg className="w-full h-full" viewBox="0 0 800 400" preserveAspectRatio="none">
+              <circle cx="100" cy="100" r="80" fill="#fbbf24" />
+              <circle cx="700" cy="300" r="120" fill="#fbbf24" />
+              <circle cx="400" cy="50" r="40" fill="#fff" />
+            </svg>
+          </div>
+
+          <div className="max-w-5xl mx-auto relative z-10">
+            <motion.div {...fadeUp(0)} className="text-center mb-14">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white text-xs font-semibold mb-4">
+                <Icon.MessageCircle className="w-3.5 h-3.5" /> 加入我们
+              </span>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight">
+                下次开场，<br className="md:hidden" />就有你
+              </h2>
+              <p className="mt-4 text-white/85 max-w-xl mx-auto">
+                扫码联系管理员，备注「菜群」，拉你进群。
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {qrCards.map((card) => (
+                <motion.div
+                  key={card.src}
+                  {...fadeUp(card.delay)}
+                  className="bg-white text-slate-900 rounded-3xl p-6 text-center"
+                >
+                  <div className="aspect-square rounded-2xl bg-white mb-4 border-2 border-slate-200 flex items-center justify-center p-2">
+                    <img
+                      src={card.src}
+                      alt={card.label}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <div className="text-xs uppercase tracking-widest text-court font-semibold">{card.label}</div>
+                  <div className="text-sm font-bold mt-1">{card.sub}</div>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div {...fadeUp(0.4)} className="mt-12 text-center">
+              <div className="inline-flex items-center gap-2 text-white/80 text-sm">
+                <Icon.Shield className="w-4 h-4" /> 进群请先阅读群规，潜水两个月会被送机票✈️
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       Footer
+       ============================================================ */
+    function Footer() {
+      return (
+        <footer className="bg-slate-900 text-slate-400 py-10 px-6">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏸</span>
+              <span className="text-white font-bold">又菜又爱玩</span>
+            </div>
+            <div className="text-xs">© 2025-2026 又菜又爱玩羽毛球爱好者群</div>
+          </div>
+        </footer>
+      );
+    }
+
+    /* ============================================================
+       Sponsorship / Ad Space
+       ============================================================ */
+    function AdSpace() {
+      return (
+        <section className="py-16 px-6 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 pointer-events-none">
+            <div className="absolute inset-0" style={{backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,0.05) 20px,rgba(255,255,255,0.05) 40px)'}} />
+          </div>
+          <div className="max-w-4xl mx-auto text-center relative z-10">
+            <motion.div {...fadeUp(0)}>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-xs font-semibold mb-4">
+                <Icon.Sparkles className="w-3.5 h-3.5" /> 广告位招租
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight">
+                这里可以是<span className="text-amber-400">您的品牌</span>
+              </h2>
+              <p className="mt-4 text-slate-400 max-w-lg mx-auto text-sm leading-relaxed">
+                每位羽毛球爱好者精准触达，曝光引流效果好。<br />
+                球馆场地、运动装备、饮料品牌合作请联系管理员。
+              </p>
+              <motion.a
+                href="#join"
+                {...fadeUp(0.2)}
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-amber-500 text-slate-900 font-bold px-6 py-3 hover:bg-amber-400 transition-all hover:scale-[1.03]"
+              >
+                立即联系 <Icon.ArrowRight className="w-4 h-4" />
+              </motion.a>
+            </motion.div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ============================================================
+       App
+       ============================================================ */
+    function App() {
+      return (
+        <div className="min-h-screen">
+          <Navbar />
+          <Hero />
+          <StatsStrip />
+          <GroupRules />
+          <Schedule />
+          <Atmosphere />
+          <MemberLevels />
+          <AdSpace />
+          <JoinUs />
+          <Footer />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
