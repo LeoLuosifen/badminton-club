@@ -95,6 +95,37 @@
       from { opacity: 0; transform: scale(0.5); }
       to   { opacity: 1; transform: scale(1); }
     }
+
+    /* Button press feedback */
+    .btn-press { transition: transform 150ms cubic-bezier(.22,1,.36,1); }
+    .btn-press:hover { transform: scale(1.03); }
+    .btn-press:active { transform: scale(0.97); }
+
+    /* Card hover lift */
+    .card-lift { transition: transform 400ms cubic-bezier(.22,1,.36,1), box-shadow 400ms; }
+    .card-lift:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+
+    /* Nav link underline animation */
+    .nav-link { position: relative; }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: #16a34a;
+      transition: width 300ms cubic-bezier(.22,1,.36,1);
+    }
+    .nav-link:hover::after { width: 100%; }
+
+    /* Hero players floating animation */
+    @keyframes player-float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(0.5deg); }
+    }
+    .player-float { animation: player-float 4s ease-in-out infinite; }
+    .player-float-delayed { animation: player-float 4.5s ease-in-out infinite 0.5s; }
   </style>
 </head>
 
@@ -461,10 +492,10 @@
             </a>
             <div className="hidden md:flex items-center gap-7">
               {links.map(([href, label]) => (
-                <a key={href} href={href} className="text-sm text-slate-600 hover:text-court transition-colors">{label}</a>
+                <a key={href} href={href} className="nav-link text-sm text-slate-600 hover:text-court transition-colors">{label}</a>
               ))}
             </div>
-            <a href="#join" className="inline-flex items-center gap-1.5 rounded-full bg-court text-white text-sm font-semibold px-4 py-2 hover:bg-court/90 transition-all hover:scale-[1.03]">
+            <a href="#join" className="btn-press inline-flex items-center gap-1.5 rounded-full bg-court text-white text-sm font-semibold px-4 py-2 hover:bg-court/90 transition-all">
               立即加入 <Icon.ArrowRight />
             </a>
           </div>
@@ -493,7 +524,7 @@
             initial={{ opacity: 0, x: -60 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-            className="absolute left-[2%] md:left-[4%] lg:left-[6%] bottom-[6%] z-10 pointer-events-none hidden md:block"
+            className="player-float absolute left-[2%] md:left-[4%] lg:left-[6%] bottom-[6%] z-10 pointer-events-none hidden md:block"
           >
             <Player className="w-52 lg:w-64 xl:w-72" />
           </motion.div>
@@ -503,7 +534,7 @@
             initial={{ opacity: 0, x: 60 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
-            className="absolute right-[2%] md:right-[4%] lg:right-[6%] bottom-[6%] z-10 pointer-events-none hidden lg:block"
+            className="player-float-delayed absolute right-[2%] md:right-[4%] lg:right-[6%] bottom-[6%] z-10 pointer-events-none hidden lg:block"
           >
             <div style={{ transform: 'scaleX(-1)' }}>
               <Player className="w-48" />
@@ -646,7 +677,7 @@
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.6, ease: EASE, delay: i * 0.07 }}
                   whileHover={{ y: -6 }}
-                  className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-court/40 hover:shadow-xl hover:shadow-court/5 transition-all"
+                  className="card-lift bg-white rounded-2xl p-6 border border-slate-200 hover:border-court/40"
                 >
                   <div className="text-3xl mb-3">{r.icon}</div>
                   <div className="text-xs text-court font-semibold tracking-widest uppercase mb-1">No.0{i + 1}</div>
@@ -709,7 +740,7 @@
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.7, ease: EASE }}
-                  className="bg-white rounded-3xl p-8 border border-slate-200 hover:shadow-2xl hover:shadow-court/10 transition-all"
+                  className="card-lift bg-white rounded-3xl p-8 border border-slate-200"
                 >
                   <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${s.tagColor}`}>{s.tag}</span>
                   <h3 className="mt-4 text-2xl font-bold text-slate-900">{s.day}</h3>
@@ -724,7 +755,7 @@
 
             <motion.div
               {...fadeUp(0.3)}
-              className="mt-10 bg-white rounded-3xl p-6 md:p-8 border border-slate-200 flex items-center gap-5 hover:shadow-xl transition-shadow"
+              className="card-lift mt-10 bg-white rounded-3xl p-6 md:p-8 border border-slate-200 flex items-center gap-5"
             >
               <div className="w-14 h-14 rounded-2xl bg-court/10 flex items-center justify-center shrink-0">
                 <Icon.MapPin className="w-7 h-7 text-court" />
@@ -737,6 +768,76 @@
             </motion.div>
           </div>
         </section>
+      );
+    }
+
+    /* ============================================================
+       Photo Wall — masonry-style grid of recent photos
+       ============================================================ */
+    function PhotoWall() {
+      const wallPhotos = [
+        './public/imgs/badminton_games/game1.jpg',
+        './public/imgs/badminton_games/game2.jpg',
+        './public/imgs/badminton_games/game3.jpg',
+        './public/imgs/badminton_games/game4.jpg',
+        './public/imgs/badminton_games/game5.jpg',
+        './public/imgs/badminton_games/game6.jpg',
+        './public/imgs/badminton_games/game7.jpg',
+        './public/imgs/badminton_games/game8.jpg',
+        './public/imgs/badminton_games/game9.jpg',
+      ];
+
+      const heights = ['h-[200px]', 'h-[160px]', 'h-[180px]'];
+      const [loaded, setLoaded] = useState(false);
+
+      useEffect(() => {
+        // Preload all images before showing the wall
+        let count = 0;
+        wallPhotos.forEach((src) => {
+          const img = new Image();
+          img.onload = img.onerror = () => {
+            count++;
+            if (count === wallPhotos.length) setLoaded(true);
+          };
+          img.src = src;
+        });
+      }, []);
+
+      return (
+        <motion.div {...fadeUp(0.1)} className="mb-10">
+          {/* 过渡标题 */}
+          <motion.div {...fadeUp(0.05)} className="text-center mb-5">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="h-px w-12 bg-gradient-to-r from-transparent to-energy/40" />
+              <span className="text-energy font-bold text-lg tracking-wide">球场瞬间</span>
+              <div className="h-px w-12 bg-gradient-to-l from-transparent to-energy/40" />
+            </div>
+          </motion.div>
+
+          {/* Grid — no layout shift once loaded */}
+          <div className="grid grid-cols-3 gap-3">
+            {wallPhotos.map((src, i) => (
+              <motion.div
+                key={src}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: loaded ? 1 : 0, y: loaded ? 0 : 12 }}
+                transition={{ duration: 0.4, delay: loaded ? i * 0.04 : 0, ease: EASE }}
+                className="rounded-2xl overflow-hidden cursor-pointer h-44"
+              >
+                <img
+                  src={src}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ display: loaded ? 'block' : 'none' }}
+                />
+                {/* Skeleton placeholder while loading */}
+                {!loaded && (
+                  <div className="w-full h-full bg-slate-200 animate-pulse" />
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       );
     }
 
@@ -818,9 +919,20 @@
               </p>
             </motion.div>
 
+            <PhotoWall />
+
+            {/* 过渡标题 */}
+            <motion.div {...fadeUp(0.15)} className="text-center mb-6">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <div className="h-px w-12 bg-gradient-to-r from-transparent to-energy/40" />
+                <span className="text-energy font-bold text-lg tracking-wide">精彩记录</span>
+                <div className="h-px w-12 bg-gradient-to-l from-transparent to-energy/40" />
+              </div>
+            </motion.div>
+
             <motion.div
               {...fadeUp(0.2)}
-              className="relative max-w-5xl mx-auto rounded-3xl overflow-hidden bg-slate-200 shadow-xl shadow-court/10 group"
+              className="relative max-w-6xl mx-auto rounded-3xl overflow-hidden bg-slate-200 shadow-xl shadow-court/10 group"
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
             >
@@ -878,7 +990,7 @@
           emoji: '🌱',
           desc: '刚拿起球拍？没关系。本群一半以上都是新手。',
           skills: ['握拍与基础站位', '高远球入门'],
-          count: 20,
+          count: 30,
         },
         {
           tag: '中级',
@@ -894,7 +1006,7 @@
           emoji: '🔥',
           desc: '有扎实基本功，愿意带新手、组比赛、做示范。',
           skills: ['全场步伐', '攻防战术', '新手陪练与指导'],
-          count: 30,
+          count: 20,
         },
       ];
       const total = levels.reduce((a, b) => a + b.count, 0);
@@ -921,7 +1033,7 @@
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.7, ease: EASE, delay: i * 0.1 }}
-                  className="relative bg-white rounded-3xl p-7 border border-slate-200 hover:shadow-2xl transition-all overflow-hidden group"
+                  className="card-lift relative bg-white rounded-3xl p-7 border border-slate-200 overflow-hidden group"
                 >
                   <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full bg-gradient-to-br ${l.color} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`} />
                   <div className="relative">
@@ -964,8 +1076,8 @@
     function JoinUs() {
       const qrCards = [
         { src: './public/imgs/qr_code/pa.jpg',   label: '群管理员', sub: '猫猫管理', delay: 0.1 },
-        { src: './public/imgs/qr_code/pang.jpg', label: '群管理员', sub: '勤拿球',   delay: 0.2 },
-        { src: './public/imgs/qr_code/w.jpg',    label: '垃圾技术', sub: '啥也不会', delay: 0.3 }
+        { src: './public/imgs/qr_code/pang.jpg', label: '群管理员', sub: '勤奋拿球',   delay: 0.2 },
+        { src: './public/imgs/qr_code/w.jpg',    label: '垃圾维护', sub: '啥也不会', delay: 0.3 }
       ];
       return (
         <section id="join" className="py-24 px-6 bg-gradient-to-br from-court to-court/80 text-white relative overflow-hidden">
